@@ -1,0 +1,332 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Who's the Animal?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Lexend:wght@400;600;700&display=swap">
+<style>
+/* Layout: links Tierkarten (zum Durchstreichen), rechts das Frage-Chatfenster mit Eingabe; schmal untereinander */
+:root{
+  --bg:#f4efe2; --ink:#2a2418; --muted:#6f6550; --card:#fffdf6; --leaf:#3f8a4f; --leaf2:#e3f1df; --sun:#f2b134; --bad:#c8463b; --line:#e3d8bd;
+  --display:'Baloo 2','Trebuchet MS',system-ui,sans-serif; --body:'Lexend',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body)}
+.wrap{max-width:1300px;margin:0 auto;padding-block:14px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-size:clamp(30px,4.5vw,46px);margin:0;color:var(--leaf);line-height:1}
+.stats{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-weight:600}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-variant-numeric:tabular-nums}
+.btn{font:600 15px var(--body);padding:9px 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.btn:hover,.btn:focus-visible{border-color:var(--leaf);outline:none}
+.btn.main{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.cols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:14px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;min-width:0}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.ani{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:14px;border:2px solid var(--line);background:#fff;cursor:pointer;font:600 14px var(--body);color:var(--ink);text-align:center;min-height:86px;justify-content:center}
+.ani .em{font-size:34px;line-height:1.1}
+.ani .cl{font-size:11px;color:var(--muted);font-weight:400}
+.ani.out{opacity:.35;background:#efe9da}
+.ani.out::after{content:"";position:absolute;inset:8px;background:linear-gradient(135deg,transparent 47%,var(--bad) 47%,var(--bad) 53%,transparent 53%)}
+.ani.win{border-color:var(--leaf);background:var(--leaf2);opacity:1}
+.ani.win::after{display:none}
+.chat{display:flex;flex-direction:column;gap:8px;height:360px;overflow:auto;padding:4px 4px 4px 0}
+.b{max-width:85%;padding:8px 12px;border-radius:14px;line-height:1.4;font-size:16px}
+.b.me{align-self:flex-end;background:#e5eefc;border-bottom-right-radius:4px}
+.b.it{align-self:flex-start;background:var(--leaf2);border-bottom-left-radius:4px}
+.b.err{align-self:flex-start;background:#fbe4e1;color:var(--bad);border-bottom-left-radius:4px}
+.b.sys{align-self:center;background:#fff4d6;font-size:14px;text-align:center}
+.ask{display:flex;gap:8px;margin-top:10px}
+.ask input{flex:1;min-width:0;font:600 18px var(--body);padding:11px 12px;border-radius:12px;border:2px solid var(--line);background:#fff;color:var(--ink)}
+.ask input:focus{outline:none;border-color:var(--leaf)}
+.help{margin-top:12px;font-size:14px;line-height:1.6;background:#faf6ea;border-radius:12px;padding:10px 12px}
+.help b{color:var(--leaf)}
+.words{color:var(--muted)}
+.layer{position:fixed;inset:0;z-index:20;background:rgba(42,36,24,.55);display:grid;place-items:center;padding:16px;overflow:auto}
+.layer .panel{max-width:640px;width:100%;box-sizing:border-box;padding:22px}
+.layer h2{font-family:var(--display);font-size:32px;margin:0 0 10px;color:var(--leaf)}
+.layer ol{margin:0 0 14px;padding-left:22px;display:flex;flex-direction:column;gap:8px;line-height:1.5}
+.stars{font-size:34px;letter-spacing:4px}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Who's the Animal?</h1>
+    <div class="stats"><span class="pill">Questions: <b id="qn">0</b></span><span class="pill" title="guesses left">Guesses: <b id="gl">●●●</b></span><span class="pill">⭐ <b id="score">0</b></span>
+      <button class="btn" id="rulesBtn">Rules</button><button class="btn" id="newBtn">New animal</button></div>
+  </header>
+  <div class="cols">
+    <section class="panel"><p class="label">Tap an animal to cross it out</p><div class="grid" id="grid"></div></section>
+    <section class="panel">
+      <p class="label">Ask yes/no questions</p>
+      <div class="chat" id="chat" aria-live="polite"></div>
+      <form class="ask" id="form" autocomplete="off"><input id="q" autocapitalize="sentences" autocorrect="off" spellcheck="false" placeholder="Can it swim?" aria-label="your question"><button class="btn main">Ask</button></form>
+      <div class="help">
+        <b>Is it</b> a mammal / a bird / big / dangerous / green …?<br>
+        <b>Can it</b> fly / swim / climb / jump / run fast?<br>
+        <b>Has it got</b> wings / fur / scales / a shell / four legs / a long neck …?<br>
+        <b>Does it live</b> in the sea / in the rainforest / in Africa …?<br>
+        <b>Does it eat</b> meat / plants / fish / insects? · <b>Does it lay</b> eggs?<br>
+        <b>Is it</b> a pet / a farm animal / a wild animal? · <b>Has it got</b> a trunk / a mane / horns …?<br>
+        <span class="words">Your guess: <b>Is it a …?</b> – only after 3 questions, 3 guesses per animal.</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="layer" id="rules" hidden><div class="panel">
+  <h2>Rules</h2>
+  <ol>
+    <li>I am thinking of one of the 25 animals on the cards. Find out which one! (Every round has new animals.)</li>
+    <li><b>Write</b> yes/no questions in English. I only answer correct questions.</li>
+    <li>Every question counts. A wrong question (for example <i>Can it swims?</i>) also counts – and I tell you the right form.</li>
+    <li>Tap the animals that can't be the answer to cross them out.</li>
+    <li>When you know it, ask: <i>Is it a …?</i> You can guess only after <b>3 questions</b>. You have <b>3 guesses</b> – then a new animal comes and you get no stars. A wrong guess counts as <b>two</b> questions.</li>
+    <li>Few questions = many stars: up to 7 questions ⭐⭐⭐ · up to 11 ⭐⭐ · more ⭐</li>
+  </ol>
+  <button class="btn main" id="rulesClose">OK</button>
+</div></div>
+<div class="layer" id="won" hidden><div class="panel">
+  <h2 id="wonTitle">Yes!</h2><p id="wonText"></p><p class="stars" id="wonStars"></p>
+  <button class="btn main" id="again">Next animal</button>
+</div></div>
+
+<script>
+/* Tierpool (108 Tiere). sz = Größe (tiny/small/medium/big/huge), col = Farben (many = viele), t = ja, s = manchmal, u = unsicher, f = sicher nein, x = eigene Antwort, al = andere Namen.
+   Kürzel: world = Afrika, Asien, Australien, Amerika, Europa, Österreich. Nicht genannte Eigenschaften = nein (swim/jump/climb/runfast/intelligent = unsicher). */
+const POOL=[
+ {n:'dog',e:'🐕',c:'mammal',sz:'medium',col:'many',t:'legs 4legs fur tail swim jump runfast pet house city meat world intelligent',s:'plants fast farm',f:'climb'},
+ {n:'cat',e:'🐈',c:'mammal',sz:'small',col:'many',t:'legs 4legs fur tail longtail climb jump pet house city meat world nocturnal',s:'swim fish runfast fast farm'},
+ {n:'horse',e:'🐎',c:'mammal',sz:'big',col:'many',t:'legs 4legs fur tail mane runfast jump swim farm plants fast tall world intelligent',s:'pet wild',f:'climb'},
+ {n:'cow',e:'🐄',c:'mammal',sz:'big',col:'black white brown',t:'legs 4legs fur tail farm plants world',s:'horns swim',f:'jump climb runfast'},
+ {n:'pig',e:'🐖',c:'mammal',sz:'medium',col:'pink black brown',t:'legs 4legs tail swim farm plants intelligent world',s:'meat fur',f:'climb'},
+ {n:'sheep',e:'🐑',c:'mammal',sz:'medium',col:'white black',t:'legs 4legs fur tail farm plants world',s:'horns jump swim',f:'climb'},
+ {n:'goat',e:'🐐',c:'mammal',sz:'medium',col:'white brown black grey',t:'legs 4legs fur tail horns climb jump farm mountains plants world',s:'wild pet'},
+ {n:'rabbit',e:'🐇',c:'mammal',sz:'small',col:'many',t:'legs 4legs fur tail jump runfast fast pet house plants world underground',s:'farm wild swim garden',f:'climb'},
+ {n:'mouse',e:'🐁',c:'mammal',sz:'tiny',col:'grey brown white',t:'legs 4legs fur tail longtail climb jump plants nocturnal house farm city world',s:'pet insects swim underground garden'},
+ {n:'rat',e:'🐀',c:'mammal',sz:'small',col:'grey brown black',t:'legs 4legs fur tail longtail climb swim plants intelligent nocturnal city world',s:'pet meat insects jump house farm'},
+ {n:'hamster',e:'🐹',c:'mammal',sz:'tiny',col:'brown white orange',t:'legs 4legs fur tail pet house plants nocturnal',s:'insects asia europe austria underground',f:'runfast'},
+ {n:'guinea pig',e:'',c:'mammal',sz:'small',col:'many',t:'legs 4legs fur pet house plants',s:'america jump',f:'tail climb',al:'guinea-pig'},
+ {n:'lion',e:'🦁',c:'mammal',sz:'big',col:'yellow brown orange',t:'legs 4legs fur tail longtail mane savanna africa meat dangerous fast runfast jump',s:'climb swim asia'},
+ {n:'tiger',e:'🐅',c:'mammal',sz:'big',col:'orange black white',t:'legs 4legs fur tail longtail stripes forest rainforest asia meat dangerous swim jump runfast fast',s:'climb'},
+ {n:'leopard',e:'🐆',c:'mammal',sz:'big',col:'yellow orange black',t:'legs 4legs fur tail longtail spots climb trees jump runfast fast savanna forest africa asia meat dangerous nocturnal',s:'swim'},
+ {n:'cheetah',e:'',c:'mammal',sz:'big',col:'yellow orange black',t:'legs 4legs fur tail longtail spots runfast jump fast savanna africa meat',s:'climb dangerous asia'},
+ {n:'elephant',e:'🐘',c:'mammal',sz:'huge',col:'grey',t:'legs 4legs tail trunk tusks swim savanna forest africa asia plants intelligent tall',s:'dangerous runfast',f:'jump climb fur'},
+ {n:'giraffe',e:'🦒',c:'mammal',sz:'huge',col:'yellow orange brown white',t:'legs 4legs fur tail longneck spots horns mane savanna africa plants tall',s:'runfast fast',f:'jump climb'},
+ {n:'zebra',e:'🦓',c:'mammal',sz:'big',col:'black white',t:'legs 4legs fur tail stripes mane savanna africa plants runfast fast',s:'swim jump',f:'climb'},
+ {n:'hippo',e:'🦛',c:'mammal',sz:'huge',col:'grey pink',t:'legs 4legs tail freshwater savanna africa plants dangerous',s:'runfast',f:'fur jump climb',al:'hippopotamus'},
+ {n:'rhino',e:'🦏',c:'mammal',sz:'huge',col:'grey',t:'legs 4legs tail horns savanna africa asia plants dangerous',s:'runfast',f:'fur jump climb',al:'rhinoceros'},
+ {n:'camel',e:'🐫',c:'mammal',sz:'big',col:'brown yellow',t:'legs 4legs fur tail hump desert africa asia plants tall',s:'australia farm wild runfast',f:'climb jump'},
+ {n:'kangaroo',e:'🦘',c:'mammal',sz:'big',col:'brown grey',t:'legs fur tail longtail pouch jump fast runfast swim australia savanna plants',s:'desert',u:'2legs 4legs',f:'climb'},
+ {n:'koala',e:'🐨',c:'mammal',sz:'medium',col:'grey white',t:'legs 4legs fur climb trees forest australia plants slow',s:'nocturnal swim',u:'tail',f:'runfast fast'},
+ {n:'panda',e:'🐼',c:'mammal',sz:'big',col:'black white',t:'legs 4legs fur tail climb trees forest mountains asia plants',s:'swim slow dangerous',f:'runfast'},
+ {n:'brown bear',e:'🐻',c:'mammal',sz:'big',col:'brown',t:'legs 4legs fur tail swim forest mountains europe asia america meat fish plants dangerous',s:'climb austria runfast fast',al:'bear'},
+ {n:'polar bear',e:'🐻‍❄️',c:'mammal',sz:'huge',col:'white',t:'legs 4legs fur tail swim cold arctic meat fish dangerous',s:'runfast',f:'climb'},
+ {n:'wolf',e:'🐺',c:'mammal',sz:'medium',col:'grey brown black white',t:'legs 4legs fur tail forest mountains europe asia america meat dangerous runfast fast intelligent',s:'austria cold arctic swim nocturnal jump',f:'climb'},
+ {n:'fox',e:'🦊',c:'mammal',sz:'medium',col:'orange red white black',t:'legs 4legs fur tail longtail forest europe asia america austria meat insects runfast jump nocturnal',s:'plants city garden australia africa swim underground climb'},
+ {n:'deer',e:'🦌',c:'mammal',sz:'big',col:'brown',t:'legs 4legs fur tail antlers forest europe asia america austria plants runfast jump fast swim',f:'climb',x:{horns:'No, it hasn’t – but it has got antlers!'}},
+ {n:'moose',e:'',c:'mammal',sz:'huge',col:'brown',t:'legs 4legs fur tail antlers swim forest cold america europe asia plants tall',s:'runfast',f:'climb jump',x:{horns:'No, it hasn’t – but it has got antlers!'},al:'elk'},
+ {n:'bat',e:'🦇',c:'mammal',sz:'tiny',col:'black brown',t:'fly wings fur legs nocturnal insects world',s:'plants tail trees city',f:'feathers beak',x:{bird:'No, it isn’t – it’s a mammal! But it can fly.'}},
+ {n:'hedgehog',e:'🦔',c:'mammal',sz:'small',col:'brown',t:'legs 4legs spikes insects forest garden europe austria nocturnal',s:'swim tail fur slow',f:'climb jump'},
+ {n:'squirrel',e:'🐿️',c:'mammal',sz:'small',col:'red brown grey orange',t:'legs 4legs fur tail longtail climb jump trees forest garden city europe asia america austria plants fast',s:'insects'},
+ {n:'beaver',e:'🦫',c:'mammal',sz:'medium',col:'brown',t:'legs 4legs fur tail swim freshwater forest europe america austria plants',s:'asia nocturnal',f:'climb jump'},
+ {n:'monkey',e:'🐒',c:'mammal',sz:'medium',col:'brown black grey',t:'legs fur tail longtail climb jump trees rainforest forest africa asia america plants intelligent',s:'insects',u:'2legs 4legs'},
+ {n:'gorilla',e:'🦍',c:'mammal',sz:'big',col:'black grey',t:'legs 2legs fur rainforest africa plants intelligent',s:'climb trees',f:'tail swim'},
+ {n:'chimpanzee',e:'',c:'mammal',sz:'medium',col:'black brown',t:'legs 2legs fur climb jump trees rainforest forest africa plants intelligent',s:'insects meat dangerous',f:'tail swim',al:'chimp'},
+ {n:'orangutan',e:'🦧',c:'mammal',sz:'big',col:'orange red brown',t:'legs 2legs fur climb trees rainforest asia plants intelligent',s:'slow insects',f:'tail swim'},
+ {n:'sloth',e:'🦥',c:'mammal',sz:'medium',col:'brown grey',t:'legs 4legs fur climb trees swim rainforest america plants slow',s:'nocturnal green',u:'tail',f:'runfast jump fast'},
+ {n:'otter',e:'🦦',c:'mammal',sz:'medium',col:'brown',t:'legs 4legs fur tail longtail swim freshwater europe asia america austria fish intelligent',s:'sea meat africa',f:'climb'},
+ {n:'raccoon',e:'🦝',c:'mammal',sz:'medium',col:'grey black white',t:'legs 4legs fur tail stripes climb swim forest america nocturnal plants meat insects intelligent city',s:'europe fish garden'},
+ {n:'badger',e:'🦡',c:'mammal',sz:'medium',col:'black white grey',t:'legs 4legs fur tail stripes forest europe asia austria nocturnal insects plants underground',s:'meat',f:'climb jump'},
+ {n:'skunk',e:'🦨',c:'mammal',sz:'small',col:'black white',t:'legs 4legs fur tail stripes america nocturnal insects plants',s:'meat',f:'climb'},
+ {n:'llama',e:'🦙',c:'mammal',sz:'big',col:'white brown black',t:'legs 4legs fur tail mountains america plants',s:'farm pet tall wild'},
+ {n:'dolphin',e:'🐬',c:'mammal',sz:'big',col:'grey',t:'swim jump fins flippers tail sea fish intelligent fast',s:'freshwater',u:'africa asia australia america europe',f:'legs fur climb runfast',x:{fish:'No, it isn’t – it’s a mammal!'}},
+ {n:'whale',e:'🐋',c:'mammal',sz:'huge',col:'grey blue black',t:'swim fins flippers tail sea intelligent long',s:'jump fish cold arctic antarctica',u:'teeth africa asia australia america europe',f:'legs fur climb runfast',x:{fish:'No, it isn’t – it’s a mammal!'}},
+ {n:'seal',e:'🦭',c:'mammal',sz:'medium',col:'grey brown',t:'swim fur flippers sea cold arctic antarctica fish',s:'europe america asia',u:'tail',f:'climb runfast jump legs'},
+ {n:'bison',e:'🦬',c:'mammal',sz:'huge',col:'brown',t:'legs 4legs fur tail horns savanna forest america europe plants',s:'runfast fast jump',f:'climb',al:'buffalo'},
+ {n:'donkey',e:'',c:'mammal',sz:'big',col:'grey brown',t:'legs 4legs fur tail mane farm plants world',s:'pet wild slow',f:'climb'},
+ {n:'antelope',e:'',c:'mammal',sz:'medium',col:'brown white',t:'legs 4legs fur tail horns savanna africa plants runfast jump fast',s:'asia',f:'climb'},
+ {n:'walrus',e:'',c:'mammal',sz:'huge',col:'brown pink',t:'swim flippers tusks cold arctic',s:'fur meat fish',f:'legs tail climb runfast jump'},
+ {n:'mole',e:'',c:'mammal',sz:'tiny',col:'black grey',t:'legs 4legs fur tail underground garden forest europe asia america austria insects',s:'swim',f:'climb jump runfast'},
+ {n:'eagle',e:'🦅',c:'bird',sz:'medium',col:'brown white yellow',t:'fly mountains forest meat fast europe asia america austria',s:'fish dangerous africa'},
+ {n:'owl',e:'🦉',c:'bird',sz:'medium',col:'brown white grey',t:'fly forest nocturnal meat world',s:'insects trees city'},
+ {n:'parrot',e:'🦜',c:'bird',sz:'medium',col:'red green blue yellow',t:'fly climb trees rainforest america africa asia australia plants colourful intelligent',s:'pet house insects'},
+ {n:'penguin',e:'🐧',c:'bird',sz:'medium',col:'black white yellow orange',t:'swim sea cold antarctica fish',s:'africa australia america',f:'fly climb runfast',x:{arctic:'No, it doesn’t. It lives in the Antarctic – that’s in the south!'}},
+ {n:'ostrich',e:'',c:'bird',sz:'huge',col:'black white grey pink',t:'runfast fast savanna desert africa plants tall longneck',s:'insects dangerous',f:'fly climb'},
+ {n:'flamingo',e:'🦩',c:'bird',sz:'big',col:'pink white black',t:'fly longneck freshwater africa america asia colourful',s:'swim sea europe insects plants fish'},
+ {n:'peacock',e:'🦚',c:'bird',sz:'big',col:'blue green brown',t:'fly longtail forest asia plants insects colourful',s:'farm'},
+ {n:'swan',e:'🦢',c:'bird',sz:'big',col:'white black',t:'fly swim longneck freshwater plants europe austria asia america australia',s:'dangerous'},
+ {n:'duck',e:'🦆',c:'bird',sz:'small',col:'brown green white',t:'fly swim freshwater plants insects world',s:'farm city garden pet'},
+ {n:'chicken',e:'🐔',c:'bird',sz:'small',col:'many',t:'farm plants insects world',s:'fly runfast pet garden',f:'swim climb',al:'hen'},
+ {n:'turkey',e:'🦃',c:'bird',sz:'medium',col:'brown black red',t:'farm forest america plants insects',s:'fly runfast europe austria asia australia africa'},
+ {n:'pigeon',e:'🕊️',c:'bird',sz:'small',col:'grey white',t:'fly city plants world',s:'garden farm insects',al:'dove'},
+ {n:'crow',e:'',c:'bird',sz:'small',col:'black',t:'fly intelligent world city farm meat insects plants',s:'garden'},
+ {n:'stork',e:'',c:'bird',sz:'big',col:'white black red',t:'fly longneck farm europe africa austria meat insects',s:'fish freshwater asia'},
+ {n:'woodpecker',e:'',c:'bird',sz:'small',col:'black white red',t:'fly climb trees forest europe asia america austria insects',s:'green garden plants'},
+ {n:'hummingbird',e:'',c:'bird',sz:'tiny',col:'green red blue',t:'fly fast colourful america plants',s:'insects'},
+ {n:'seagull',e:'',c:'bird',sz:'medium',col:'white grey',t:'fly swim sea world fish',s:'meat insects plants city',al:'gull'},
+ {n:'robin',e:'',c:'bird',sz:'tiny',col:'red orange brown',t:'fly forest garden europe austria insects',s:'plants'},
+ {n:'crocodile',e:'🐊',c:'reptile',sz:'huge',col:'green brown grey',t:'swim legs 4legs tail longtail teeth freshwater africa asia australia america meat fish dangerous long',s:'climb runfast'},
+ {n:'king cobra',e:'🐍',c:'reptile',sz:'big',col:'black yellow brown green',t:'swim climb teeth poisonous dangerous rainforest forest asia meat long',f:'legs',al:'cobra snake'},
+ {n:'python',e:'',c:'reptile',sz:'huge',col:'brown yellow green',t:'swim climb teeth rainforest africa asia meat long',s:'dangerous trees australia',f:'legs poisonous'},
+ {n:'sea turtle',e:'🐢',c:'reptile',sz:'big',col:'green brown',t:'swim shell flippers sea',s:'plants meat slow',u:'legs 4legs tail',f:'teeth climb',al:'turtle'},
+ {n:'tortoise',e:'',c:'reptile',sz:'medium',col:'brown',t:'shell legs 4legs tail slow plants',s:'desert savanna pet africa',f:'swim teeth runfast jump climb'},
+ {n:'lizard',e:'🦎',c:'reptile',sz:'small',col:'green brown grey',t:'legs 4legs tail longtail climb insects world teeth runfast fast',s:'desert garden'},
+ {n:'chameleon',e:'',c:'reptile',sz:'small',col:'many',t:'legs 4legs tail longtail climb trees rainforest africa insects slow colourchange teeth',s:'asia colourful'},
+ {n:'iguana',e:'',c:'reptile',sz:'medium',col:'green',t:'legs 4legs tail longtail climb swim trees rainforest america plants',s:'teeth'},
+ {n:'frog',e:'🐸',c:'amphibian',sz:'small',col:'green brown',t:'swim jump legs 4legs freshwater insects world',s:'rainforest forest garden nocturnal poisonous',u:'teeth',f:'tail'},
+ {n:'toad',e:'',c:'amphibian',sz:'small',col:'brown grey',t:'jump legs 4legs freshwater forest garden insects world',s:'swim nocturnal slow poisonous',f:'tail'},
+ {n:'salamander',e:'',c:'amphibian',sz:'small',col:'black yellow',t:'legs 4legs tail longtail swim freshwater forest insects europe austria america asia',s:'poisonous nocturnal',f:'jump'},
+ {n:'shark',e:'🦈',c:'fish',sz:'huge',col:'grey white',t:'teeth sea meat fish dangerous fast',x:{eggs:'No, it doesn’t – the babies are born alive!'},al:'great white shark'},
+ {n:'goldfish',e:'',c:'fish',sz:'tiny',col:'orange yellow red',t:'freshwater pet house plants colourful',s:'insects'},
+ {n:'clownfish',e:'🐠',c:'fish',sz:'tiny',col:'orange white black',t:'sea colourful',s:'plants meat'},
+ {n:'pufferfish',e:'🐡',c:'fish',sz:'small',col:'yellow brown white',t:'sea poisonous spikes',s:'slow plants meat'},
+ {n:'tuna',e:'🐟',c:'fish',sz:'big',col:'blue grey',t:'sea fish fast',s:'heavy'},
+ {n:'seahorse',e:'',c:'fish',sz:'tiny',col:'many',t:'sea slow',s:'meat',x:{eggs:'Yes, it does – and the father carries the eggs!'}},
+ {n:'salmon',e:'',c:'fish',sz:'medium',col:'pink grey',t:'sea freshwater jump insects fish teeth',s:'europe america asia'},
+ {n:'bee',e:'🐝',c:'insect',sz:'tiny',col:'yellow black',t:'fly wings stripes plants world garden',s:'dangerous poisonous farm'},
+ {n:'butterfly',e:'🦋',c:'insect',sz:'tiny',col:'many',t:'fly wings colourful plants world garden'},
+ {n:'ant',e:'🐜',c:'insect',sz:'tiny',col:'black red brown',t:'climb world garden insects plants underground',s:'meat wings dangerous'},
+ {n:'ladybird',e:'🐞',c:'insect',sz:'tiny',col:'red black',t:'fly wings spots colourful insects garden europe austria',s:'africa asia australia america',al:'ladybug'},
+ {n:'mosquito',e:'🦟',c:'insect',sz:'tiny',col:'black grey',t:'fly wings world freshwater blood',s:'plants dangerous',x:{meat:'No, it doesn’t – but it drinks blood!'}},
+ {n:'beetle',e:'🪲',c:'insect',sz:'tiny',col:'black brown green',t:'wings world garden forest',s:'fly plants insects'},
+ {n:'fly',e:'🪰',c:'insect',sz:'tiny',col:'black',t:'fly wings world fast city',s:'plants meat'},
+ {n:'grasshopper',e:'',c:'insect',sz:'tiny',col:'green brown',t:'jump wings savanna world plants',s:'fly'},
+ {n:'dragonfly',e:'',c:'insect',sz:'tiny',col:'blue green',t:'fly wings freshwater insects fast world',s:'colourful'},
+ {n:'spider',e:'🕷️',c:'other',sz:'tiny',col:'black brown',t:'legs 8legs climb world garden insects eggs',s:'poisonous dangerous',f:'wings',x:{insect:'No, it isn’t – it has got eight legs!'}},
+ {n:'scorpion',e:'🦂',c:'other',sz:'small',col:'yellow brown black',t:'legs 8legs tail poisonous dangerous desert africa asia america australia insects nocturnal',x:{insect:'No, it isn’t – it has got eight legs!'}},
+ {n:'snail',e:'🐌',c:'other',sz:'tiny',col:'brown',t:'shell slow plants world garden eggs',f:'legs'},
+ {n:'worm',e:'🪱',c:'other',sz:'tiny',col:'pink brown',t:'underground garden world plants long',s:'eggs',f:'legs'},
+ {n:'octopus',e:'🐙',c:'other',sz:'medium',col:'red orange brown',t:'swim sea intelligent meat colourchange eggs',s:'fish beak',x:{'8legs':'It has got eight arms!',legs:'It has got eight arms – not legs!'}},
+ {n:'crab',e:'🦀',c:'other',sz:'small',col:'red orange brown',t:'legs shell sea eggs',s:'swim freshwater meat fish plants',x:{'8legs':'It has got ten legs – two of them are big claws!'}},
+ {n:'lobster',e:'🦞',c:'other',sz:'medium',col:'red blue brown',t:'legs shell tail sea eggs meat',s:'fish',x:{'8legs':'It has got ten legs – two of them are big claws!'}},
+ {n:'squid',e:'🦑',c:'other',sz:'medium',col:'white pink',t:'swim sea fish meat eggs colourchange',s:'fast'},
+ {n:'jellyfish',e:'',c:'other',sz:'small',col:'many',t:'swim sea',s:'poisonous dangerous fish',u:'eggs',f:'legs',x:{fish:'No, it isn’t – it isn’t really a fish!'}},
+ {n:'starfish',e:'',c:'other',sz:'small',col:'orange red',t:'sea slow',s:'meat',x:{fish:'No, it isn’t – it isn’t really a fish!',legs:'No – it has got five arms!'}}];
+
+const BOARD=25, MIN_Q=3, GUESSES=3;
+const WORLD='africa asia australia america europe austria';
+const AUTO={bird:'wings feathers beak legs 2legs tail eggs',reptile:'scales eggs',amphibian:'eggs',fish:'swim fins tail eggs',insect:'legs 6legs eggs',mammal:''};
+POOL.forEach(a=>{ ['t','s','u','f'].forEach(k=>a[k]=(' '+(a[k]||'').replace(/\bworld\b/,WORLD)+' '));
+  a.t+=AUTO[a.c]+' '; if(a.c==='mammal'&&!/ teeth /.test(a.u+a.f)) a.t+='teeth '; if(a.c==='fish'&&!/ teeth /.test(a.t)) a.u+='teeth ';
+  if(/ (2legs|4legs|6legs|8legs) /.test(a.t)) a.t+='legs '; if(a.x&&a.x.eggs) a.t=a.t.replace(' eggs ',' '); });
+const DEFU=['swim','jump','climb','runfast','intelligent'];
+/* Wörter → Schlüssel */
+const CLASSES={mammal:'mammal',bird:'bird',reptile:'reptile',amphibian:'amphibian',fish:'fish',insect:'insect'};
+const CAN={fly:'fly',swim:'swim',climb:'climb','climb trees':'climb',jump:'jump','run fast':'runfast','run very fast':'runfast','change colour':'colourchange','change its colour':'colourchange','change color':'colourchange','change its color':'colourchange'};
+const HAS={wings:'wings',feathers:'feathers',fur:'fur',hair:'fur',wool:'fur',scales:'scales',shell:'shell',legs:'legs','two legs':'2legs','2 legs':'2legs','four legs':'4legs','4 legs':'4legs','six legs':'6legs','6 legs':'6legs','eight legs':'8legs','8 legs':'8legs',
+ 'long neck':'longneck','long tail':'longtail',tail:'tail',spots:'spots',stripes:'stripes',horns:'horns',horn:'horns',antlers:'antlers',beak:'beak',fins:'fins',teeth:'teeth',flippers:'flippers',
+ trunk:'trunk',mane:'mane',hump:'hump',humps:'hump',pouch:'pouch',spikes:'spikes',spines:'spikes',prickles:'spikes',tusks:'tusks'};
+const LIVE={sea:'sea',ocean:'sea',oceans:'sea',water:'water',rivers:'freshwater',river:'freshwater',lakes:'freshwater',lake:'freshwater',ponds:'freshwater',pond:'freshwater',swamps:'freshwater',swamp:'freshwater',
+ rainforest:'rainforest',rainforests:'rainforest',jungle:'rainforest',savanna:'savanna',savannah:'savanna',grassland:'savanna',grasslands:'savanna',plains:'savanna',desert:'desert',deserts:'desert',
+ arctic:'arctic',antarctic:'antarctica',antarctica:'antarctica','cold places':'cold','cold countries':'cold',ice:'cold',snow:'cold',forest:'forest',forests:'forest',woods:'forest',mountains:'mountains',
+ farm:'farm',farms:'farm',house:'house',houses:'house',homes:'house','people’s houses':'house',"people's houses":'house','with people':'house',city:'city',cities:'city',town:'city',towns:'city',
+ garden:'garden',gardens:'garden',trees:'trees',tree:'trees',underground:'underground',holes:'underground','a hole':'underground',ground:'underground',
+ africa:'africa',asia:'asia',australia:'australia',america:'america','south america':'america','north america':'america',europe:'europe',austria:'austria'};
+const EAT={meat:'meat',animals:'meat','other animals':'meat','small animals':'meat',mice:'meat',birds:'meat',fish:'fish',plants:'plants',grass:'plants',leaves:'plants',fruit:'plants',nuts:'plants',seeds:'plants',vegetables:'plants',carrots:'plants',insects:'insects',bugs:'insects',worms:'insects'};
+const ADJ=['dangerous','poisonous','fast','slow','colourful','colorful','intelligent','clever','tall','long','nocturnal'];
+const OPINION=['cute','ugly','beautiful','nice','elegant','funny','sweet','friendly','scary','pretty','lovely'];
+const COLOURS=['black','white','grey','gray','brown','green','red','yellow','orange','blue','pink'];
+const $=id=>document.getElementById(id);
+let board=[], secret, qn=0, score=0, done=false, out=new Set(), guessLeft=GUESSES, lastBoard=[];
+
+function val(a,k){ if(a.x&&a.x[k]) return {msg:a.x[k]}; const h=s=>s.includes(' '+k+' ');
+  if(h(a.t)) return 'y'; if(h(a.s)) return 's'; if(h(a.u)) return 'u'; if(h(a.f)) return 'n'; return DEFU.includes(k)?'u':'n'; }
+const ANS={be:['Yes, it is.','No, it isn’t.'],can:['Yes, it can.','No, it can’t.'],has:['Yes, it has.','No, it hasn’t.'],does:['Yes, it does.','No, it doesn’t.']};
+function reply(v,type){ if(v&&v.msg) return v.msg; if(v==='s') return 'Sometimes.'; if(v==='u') return 'Hmm, I’m not sure. Ask another question.'; if(v==='m') return 'It isn’t big and it isn’t small.'; if(v==='c') return 'It can be many different colours.'; return ANS[type][v==='y'?0:1]; }
+function sizeVal(a,w){ const z=a.sz; if(w==='big'||w==='large') return z==='big'||z==='huge'?'y':z==='medium'?'m':'n';
+  if(w==='small') return z==='small'||z==='tiny'?'y':z==='medium'?'m':'n'; if(w==='tiny'||w==='very small') return z==='tiny'?'y':'n';
+  if(w==='huge'||w==='very big'||w==='very large') return z==='huge'?'y':'n'; if(w==='heavy') return z==='huge'||z==='big'?'y':'n'; return null; }
+const findAnimal=w=>{ w=w.replace(/^the /,''); return POOL.find(x=>x.n===w||(x.al&&x.al.split(' ').concat([x.al]).includes(w))); };
+
+/* ---------- Frage verstehen ---------- */
+function understand(raw){
+  let q=raw.toLowerCase().replace(/[’`´]/g,"'").replace(/\s+/g,' ').trim(); const mark=/\?\s*$/.test(q); q=q.replace(/[?.!]+$/,'').trim();
+  const fix=m=>({err:m}), a=secret;
+  if(!q) return null;
+  if(/^(it|it's|it is|it can|it has|it lives|it eats)\b/.test(q)) return fix('That’s not a question. Start with Is it …? / Can it …? / Has it got …? / Does it …?');
+  if(/^(do|have|are) it\b/.test(q)) return fix('With it we say: '+(q.startsWith('do')?'Does it …?':q.startsWith('have')?'Has it got …?':'Is it …?'));
+  let m;
+  if((m=q.match(/^can it (.+)$/))){ let w=m[1].replace(/ very well$| well$/,'');
+    if(/^(swims|flies|climbs|jumps|runs|changes)\b/.test(w)) return fix('After can we use the base form: Can it '+w.replace(/^flies/,'fly').replace(/^changes/,'change').replace(/^(\w+?)s\b/,'$1')+'?');
+    const k=CAN[w]; if(!k) return {unk:w}; return {type:'can',v:val(a,k),mark}; }
+  if((m=q.match(/^has it got (.+)$/))||(m=q.match(/^does it have (.+)$/))){ const w=m[1].replace(/^(a|an|any|some|big|long) (?=\w)/,m2=>/^(long)/.test(m2)?m2:'').trim();
+    const k=HAS[w]||HAS[w.replace(/^(a|an|any|some) /,'')]; if(!k) return {unk:w};
+    return {type:q.startsWith('does')?'does':'has',v:val(a,k),mark}; }
+  if(/^has it (?!got)/.test(q)) return fix('Use got: Has it got …?');
+  if(/^does it has\b/.test(q)) return fix('After does we use have: Does it have …? (or: Has it got …?)');
+  if((m=q.match(/^does it (\w+)\b ?(.*)$/))){ const verb=m[1], rest=m[2];
+    if(['lives','eats','lays','swims','flies','climbs','jumps','runs','drinks'].includes(verb)) return fix('After does we use the base form: Does it '+verb.replace(/ies$/,'y').replace(/s$/,'')+' …?');
+    if(verb==='live'){ let w=rest.replace(/^(in|on|near|at|under|with) /,'').replace(/^(the|a|an) /,''); if(rest.startsWith('with ')) w='with '+w;
+      if(/^zoo/.test(w)) return {say:'You can see many animals in a zoo. But where does it live in nature?'};
+      if(w==='everywhere') return {type:'does',v:WORLD.split(' ').every(c=>val(a,c)==='y')?'y':'n',mark};
+      const k=LIVE[w]; if(!k) return {unk:w};
+      if(k==='water'){ const v1=val(a,'sea'), v2=val(a,'freshwater'); return {type:'does',v:(v1==='y'||v2==='y')?'y':(v1==='s'||v2==='s')?'s':(v1==='u'||v2==='u')?'u':'n',mark}; }
+      return {type:'does',v:val(a,k),mark}; }
+    if(verb==='eat'){ const w=rest.replace(/^(only |other )/,'').replace(/^(the|a|an) /,''); const k=EAT[w]; if(!k) return {unk:w}; const v=val(a,k);
+      if(k==='meat'&&v==='n'){ if(val(a,'insects')==='y') return {type:'does',v:{msg:'No, it doesn’t – but it eats insects!'},mark}; if(val(a,'fish')==='y') return {type:'does',v:{msg:'No, it doesn’t – but it eats fish!'},mark}; }
+      return {type:'does',v,mark}; }
+    if(verb==='drink'){ if(/blood/.test(rest)) return {type:'does',v:val(a,'blood'),mark}; if(/water/.test(rest)) return {say:'Every animal needs water! Ask another question.'}; return {unk:rest}; }
+    if(verb==='lay'){ if(!/eggs?/.test(rest)) return {unk:rest}; return {type:'does',v:val(a,'eggs'),mark}; }
+    const ck=CAN[(verb+' '+rest).trim()]||CAN[verb]; if(ck) return {type:'does',v:val(a,ck),mark};
+    return {unk:verb}; }
+  if((m=q.match(/^is it (?:an? )?(.+)$/))){ let w=m[1].trim().replace(/ animal$/,'');
+    if(/^(can|has|have|does|lives|eats)\b/.test(w)) return fix('Is it + adjective or animal. With a verb: Can it …? / Does it …?');
+    if(w==='animal') return {say:'Yes, of course!'};
+    if(w==='pet') return {type:'be',v:val(a,'pet'),mark};
+    if(w==='farm') return {type:'be',v:val(a,'farm'),mark};
+    if(w==='wild'){ const p=val(a,'pet'), f=val(a,'farm'), wv=val(a,'wild'); return {type:'be',v:(p==='y'||f==='y')?(wv==='s'?'s':'n'):'y',mark}; }
+    if(CLASSES[w]||CLASSES[w.replace(/s$/,'')]){ const k=CLASSES[w]||CLASSES[w.replace(/s$/,'')]; if(a.x&&a.x[k]) return {say:a.x[k]}; return {type:'be',v:a.c===k?'y':'n',mark}; }
+    const sv=sizeVal(a,w.replace(/^very /,m0=>/^very (big|large|small)/.test(w)?m0:'')); if(sv) return {type:'be',v:sv,mark};
+    const guess=findAnimal(w); if(guess) return {guess};
+    const parts=w.split(/ and /).map(x=>x.trim());
+    if(parts.every(p=>COLOURS.includes(p))){ if(a.col==='many') return {type:'be',v:'c',mark}; const cs=a.col.split(' '); return {type:'be',v:parts.every(p=>cs.includes(p.replace('gray','grey')))?'y':'n',mark}; }
+    if(OPINION.includes(w.replace(/^very /,''))) return {say:'That’s your opinion! Ask a question with facts.'};
+    const w2=w.replace(/^very /,''); if(ADJ.includes(w2)){ const k={colorful:'colourful',clever:'intelligent'}[w2]||w2; return {type:'be',v:val(a,k),mark}; }
+    if(/^is it an? /.test(q) && /^[a-z -]+$/.test(w) && w.split(' ').length<=3) return {notcard:w};
+    return {unk:w}; }
+  if(/^(what|where|how|which|who|why)\b/.test(q)) return fix('Only yes/no questions, please! Start with Is it … / Can it … / Has it got … / Does it …');
+  return fix('Sorry? Start your question with Is it …? / Can it …? / Has it got …? / Does it …?');
+}
+
+/* ---------- Spielablauf ---------- */
+function shuffle(x){ for(let i=x.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [x[i],x[j]]=[x[j],x[i]]; } return x; }
+function say(t,cls){ const d=document.createElement('div'); d.className='b '+cls; d.textContent=t; $('chat').appendChild(d); $('chat').scrollTop=$('chat').scrollHeight; }
+function grid(){ const g=$('grid'); g.innerHTML='';
+  board.forEach((a,i)=>{ const b=document.createElement('button'); b.className='ani'+(out.has(i)?' out':''); b.setAttribute('aria-pressed',out.has(i)?'true':'false');
+    b.innerHTML=(a.e?`<span class="em">${a.e}</span>`:'')+`<span></span><span class="cl"></span>`; b.children[a.e?1:0].textContent=a.n; b.querySelector('.cl').textContent=a.c==='other'?'':a.c;
+    b.onclick=()=>{ if(done) return; out.has(i)?out.delete(i):out.add(i); grid(); }; g.appendChild(b); }); }
+function stats(){ $('qn').textContent=qn; $('gl').textContent='●'.repeat(guessLeft)+'○'.repeat(GUESSES-guessLeft); }
+function newGame(){ // 25 zufällige Tiere – möglichst andere als in der letzten Runde
+  const fresh=shuffle(POOL.filter(x=>!lastBoard.includes(x))), old=shuffle(POOL.filter(x=>lastBoard.includes(x)));
+  board=fresh.concat(old).slice(0,BOARD).sort((x,y)=>x.n.localeCompare(y.n)); lastBoard=board.slice();
+  let k; do{ k=Math.floor(Math.random()*board.length); }while(secret===board[k]); secret=board[k];
+  qn=0; done=false; out=new Set(); guessLeft=GUESSES; stats(); $('chat').innerHTML='';
+  say('I’m thinking of one of these 25 animals. Ask me yes/no questions!','sys'); grid(); $('won').hidden=true; $('q').value=''; }
+$('form').addEventListener('submit',e=>{ e.preventDefault(); if(done) return; const raw=$('q').value; if(!raw.trim()) return; const r=understand(raw); if(!r) return;
+  say(raw.trim(),'me'); $('q').value='';
+  if(r.unk!==undefined){ say('Sorry, I don’t know “'+r.unk+'” here. Try other words – look at the help box.','err'); return; }
+  if(r.say){ say(r.say,'it'); return; }
+  if(r.err){ qn++; stats(); say('That question isn’t correct. '+r.err,'err'); return; }
+  if(r.guess||r.notcard){
+    if(qn<MIN_Q){ say('Ask at least '+MIN_Q+' questions before you guess! ('+(MIN_Q-qn)+' more)','err'); return; }
+    if(r.guess===secret){ qn++; stats(); return win(); }
+    guessLeft--; qn+=2; stats();
+    const onBoard=r.guess&&board.includes(r.guess); if(onBoard) out.add(board.indexOf(r.guess)); grid();
+    if(guessLeft<=0){ done=true; const i=board.indexOf(secret); say('No. That was your last guess. It was a'+(/^[aeiou]/.test(secret.n)?'n ':' ')+secret.n+'.','err');
+      document.querySelectorAll('.ani')[i].classList.add('win'); setTimeout(()=>{ $('wonTitle').textContent='No more guesses!'; $('wonText').textContent='It was a'+(/^[aeiou]/.test(secret.n)?'n ':' ')+secret.n+'. Next time ask more questions before you guess.'; $('wonStars').textContent='☆☆☆'; $('won').hidden=false; $('again').focus(); },900); return; }
+    say((onBoard?'No, it isn’t a'+(/^[aeiou]/.test(r.guess.n)?'n ':' ')+r.guess.n+'.':'No – look at the cards, it’s one of these animals.')+' You have '+guessLeft+' guess'+(guessLeft>1?'es':'')+' left. (A wrong guess counts as two questions.)','it'); return; }
+  qn++; stats(); say(reply(r.v,r.type)+(r.mark?'':' (Don’t forget the question mark!)'),'it');
+});
+function win(){ done=true; const st=qn<=7?3:qn<=11?2:1; score+=st; $('score').textContent=score;
+  const i=board.indexOf(secret); out.delete(i); grid(); document.querySelectorAll('.ani')[i].classList.add('win');
+  $('wonTitle').textContent='Yes! It’s a'+(/^[aeiou]/.test(secret.n)?'n ':' ')+secret.n+'!'; $('wonText').textContent='You needed '+qn+' questions.'; $('wonStars').textContent='⭐'.repeat(st)+'☆'.repeat(3-st);
+  setTimeout(()=>{ $('won').hidden=false; $('again').focus(); },500); }
+$('again').onclick=newGame;
+$('newBtn').onclick=()=>{ if(!done&&qn>0) say('It was a'+(/^[aeiou]/.test(secret.n)?'n ':' ')+secret.n+'.','sys'); setTimeout(newGame,done||!qn?0:1400); };
+$('rulesBtn').onclick=()=>{ $('rules').hidden=false; $('rulesClose').focus(); };
+$('rulesClose').onclick=()=>{ $('rules').hidden=true; $('q').focus(); };
+addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('rules').hidden=true; } });
+newGame(); $('rules').hidden=false;
+</script>
+</body></html>

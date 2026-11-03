@@ -1,0 +1,296 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Verb Meteors</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Lexend:wght@400;600;800&display=swap">
+<style>
+/* Layout: ein Bildschirm – Sternenhimmel oben, Boden mit Eingabe unten; Start/Regeln/Pause/Ende als Karte in der Mitte */
+:root{
+  --sky:#0f1838; --sky2:#1e2c63; --meteor:#ff8a3d; --meteor2:#ffc46b; --hit:#6ee7a0; --text:#f3f5ff; --muted:#a3add8;
+  --danger:#ff5d73; --panel:rgba(16,26,62,.94); --line:rgba(163,173,216,.25);
+  --display:'Bungee',Impact,'Arial Black',sans-serif; --body:'Lexend',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--sky);color:var(--text);font-family:var(--body);overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 0%,var(--sky2) 0%,var(--sky) 60%)}
+#hud{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{font-family:var(--display);font-size:clamp(18px,3.4vw,26px);letter-spacing:.02em;color:var(--meteor2)}
+.stats{display:flex;gap:14px;align-items:center;font-variant-numeric:tabular-nums;font-weight:600;flex-wrap:wrap}
+.stats span b{color:var(--hit)}
+.lives{letter-spacing:4px;color:var(--danger)}
+.speed b{color:var(--meteor2)!important}
+#pause{font:700 15px var(--body);padding:6px 12px;border-radius:10px;border:2px solid var(--line);background:transparent;color:var(--text);cursor:pointer}
+#field{position:relative;flex:1;min-height:0;overflow:hidden}
+#field.paused .meteor,#field.paused .fly{visibility:hidden}
+#stars{position:absolute;inset:0;pointer-events:none}
+.meteor{position:absolute;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:10px 16px 8px;border-radius:999px 999px 26px 26px;background:linear-gradient(180deg,var(--meteor2),var(--meteor));
+  color:#2a1300;box-shadow:0 0 22px rgba(255,138,61,.55);font-weight:800;font-size:clamp(18px,3vw,24px);white-space:nowrap}
+.meteor small{font-weight:600;font-size:12px;opacity:.75}
+.meteor.target{outline:3px solid var(--hit);outline-offset:3px}
+.meteor.boom{animation:boom .35s ease-out forwards}
+.meteor.hot{background:linear-gradient(180deg,#ffb38a,var(--danger));box-shadow:0 0 30px rgba(255,93,115,.8)}
+@keyframes boom{to{transform:translateX(-50%) scale(1.8);opacity:0;filter:blur(2px)}}
+.fly{position:absolute;font-weight:800;color:var(--hit);pointer-events:none;animation:fly .9s ease-out forwards;white-space:nowrap;transform:translateX(-50%)}
+.fly.bad{color:var(--danger)}
+@keyframes fly{to{transform:translate(-50%,-50px);opacity:0}}
+.flash{position:absolute;left:50%;top:38%;transform:translateX(-50%);font-family:var(--display);font-size:clamp(26px,6vw,48px);color:var(--danger);
+  pointer-events:none;animation:flash .9s ease-out forwards;text-shadow:0 0 18px rgba(255,93,115,.7);white-space:nowrap}
+@keyframes flash{0%{opacity:0;transform:translateX(-50%) scale(.6)}20%{opacity:1;transform:translateX(-50%) scale(1.1)}100%{opacity:0;transform:translateX(-50%) scale(1)}}
+.groundmsg{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);background:rgba(255,93,115,.18);border:1px solid var(--danger);
+  border-radius:12px;padding:6px 14px;font-weight:700;white-space:nowrap;pointer-events:none;animation:gm 2.2s ease-out forwards}
+@keyframes gm{0%,75%{opacity:1}100%{opacity:0}}
+#ground{border-top:3px solid var(--hit);background:linear-gradient(180deg,rgba(110,231,160,.12),transparent);
+  padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;align-items:center;gap:10px}
+#answer{width:min(420px,100%);font:600 22px var(--body);padding:12px 16px;border-radius:14px;border:2px solid var(--line);
+  background:rgba(255,255,255,.06);color:var(--text);text-align:center;box-sizing:border-box}
+#answer:focus{outline:none;border-color:var(--hit)}
+#answer.wrong{border-color:var(--danger);animation:shake .3s}
+#choices{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn{font:700 18px var(--body);padding:12px 20px;border-radius:14px;border:2px solid var(--line);background:rgba(255,255,255,.07);color:var(--text);cursor:pointer;min-width:120px}
+.btn:hover,.btn:focus-visible{border-color:var(--hit);outline:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--hit);color:#0b2a1a;border-color:var(--hit)}
+.btn.wrong{border-color:var(--danger);background:rgba(255,93,115,.25);animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.hint{font-size:13px;color:var(--muted);text-align:center}
+#overlay{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:rgba(8,12,32,.6);z-index:5;overflow:auto}
+.card{width:min(580px,100%);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+.card h1{font-family:var(--display);font-size:clamp(28px,6vw,44px);margin:0;color:var(--meteor2);line-height:1.05;text-wrap:balance}
+.card h2{font-family:var(--display);font-size:clamp(22px,4.5vw,32px);margin:0;color:var(--meteor2)}
+.card p{margin:0;line-height:1.5;color:var(--muted)}
+.rules{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;line-height:1.45}
+.rules b{color:var(--hit)} .rules .neg{color:var(--danger)}
+.group{display:flex;flex-direction:column;gap:8px}
+.group > span{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{font:600 15px var(--body);padding:9px 14px;border-radius:999px;border:2px solid var(--line);background:transparent;color:var(--text);cursor:pointer}
+.opt[aria-pressed="true"]{background:var(--hit);color:#0b2a1a;border-color:var(--hit)}
+.opt:focus-visible{outline:2px solid var(--meteor2);outline-offset:2px}
+.miss{display:grid;grid-template-columns:repeat(3,auto);gap:4px 14px;font-size:15px;justify-content:start}
+.miss b{color:var(--hit)}
+.best{font-family:var(--display);font-size:22px;color:var(--hit)}
+@media (prefers-reduced-motion:reduce){.meteor.boom,.fly,.btn.wrong,.flash,#answer.wrong{animation-duration:.01s}}
+</style>
+
+<div id="app">
+  <header id="hud">
+    <div class="brand">Verb Meteors</div>
+    <div class="stats">
+      <span>Points <b id="score">0</b></span><span>Level <b id="level">1</b></span>
+      <span class="speed">Speed <b id="speed">×1.0</b></span>
+      <span class="lives" id="lives" aria-label="lives">♥♥♥</span>
+      <button id="pause" hidden aria-label="Pause">II Pause</button>
+    </div>
+  </header>
+  <main id="field" aria-live="polite">
+    <canvas id="stars"></canvas>
+    <div id="overlay">
+      <section class="card" id="start">
+        <h1>Verb Meteors</h1>
+        <p>Irregular verbs are falling from the sky. Stop them before they hit the ground!</p>
+        <div class="group"><span>Verbs</span><div class="opts" data-key="part">
+          <button class="opt" data-v="1" aria-pressed="true">Part 1 · be – get</button>
+          <button class="opt" data-v="2" aria-pressed="false">Part 2 · get up – send</button>
+          <button class="opt" data-v="3" aria-pressed="false">Part 3 · shoot – write</button>
+          <button class="opt" data-v="all" aria-pressed="false">All 75 verbs</button></div></div>
+        <div class="group"><span>Which form?</span><div class="opts" data-key="form">
+          <button class="opt" data-v="past" aria-pressed="true">Past simple (went)</button>
+          <button class="opt" data-v="third" aria-pressed="false">3rd form (gone)</button></div></div>
+        <div class="group"><span>How do you answer?</span><div class="opts" data-key="mode">
+          <button class="opt" data-v="type" aria-pressed="true">Type the word</button>
+          <button class="opt" data-v="tap" aria-pressed="false">Tap the right word</button></div></div>
+        <div class="group"><span>Start speed</span><div class="opts" data-key="lvl">
+          <button class="opt" data-v="1" aria-pressed="true">Level 1</button>
+          <button class="opt" data-v="4" aria-pressed="false">Level 4</button>
+          <button class="opt" data-v="7" aria-pressed="false">Level 7</button></div></div>
+        <div class="group"><span>German</span><div class="opts" data-key="de">
+          <button class="opt" data-v="1" aria-pressed="true">Show German</button>
+          <button class="opt" data-v="0" aria-pressed="false">No German</button></div></div>
+        <p class="best" id="bestStart"></p>
+        <div class="opts"><button class="btn primary" id="go">Start</button><button class="btn" id="rulesBtn">Rules</button></div>
+      </section>
+      <section class="card" id="rules" hidden>
+        <h2 id="rulesTitle">Rules</h2>
+        <ol class="rules">
+          <li>Irregular verbs fall from the sky. Write or tap the <b id="rForm">past simple</b> before the meteor hits the ground.</li>
+          <li><b>Right answer:</b> the meteor explodes and you get points. Many right answers in a row = bonus points.</li>
+          <li><span class="neg">Wrong answer:</span> you lose 5 points, the meteor jumps down – and the <span class="neg">whole game gets faster</span>. Don't guess!</li>
+          <li>When you tap a wrong word, the buttons are locked for one second.</li>
+          <li>A meteor hits the ground: you lose a heart ♥. No hearts left = game over.</li>
+          <li>Every 4 right answers you go up one level. The meteors get faster.</li>
+          <li>Every verb comes once before verbs come again. Verbs you get wrong come back soon.</li>
+          <li>Typing: press <b>Enter</b> after every word. For <i>be</i> you can write <i>was</i> or <i>were</i>.</li>
+          <li>At the end you see the verbs you should practise.</li>
+        </ol>
+        <div class="opts" id="rulesBtns"><button class="btn primary" id="rulesBack">Back</button></div>
+      </section>
+      <section class="card" id="paused" hidden>
+        <h2>Pause</h2>
+        <p>The meteors are waiting for you.</p>
+        <div class="opts"><button class="btn primary" id="resume">Continue</button><button class="btn" id="pauseRules">Rules</button><button class="btn" id="quit">End game</button></div>
+      </section>
+      <section class="card" id="end" hidden>
+        <h1 id="endTitle">Game over</h1>
+        <p id="endText"></p>
+        <p class="best" id="bestEnd"></p>
+        <div class="group" id="missBox"><span>Practise these verbs</span><div class="miss" id="missList"></div></div>
+        <div class="opts"><button class="btn primary" id="again">Play again</button><button class="btn" id="menu">Change settings</button></div>
+      </section>
+    </div>
+  </main>
+  <footer id="ground">
+    <input id="answer" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="past simple …" aria-label="answer" hidden>
+    <div id="choices" hidden></div>
+    <div class="hint" id="hint">Choose your verbs and press Start.</div>
+  </footer>
+</div>
+
+<script>
+/* [Grundform, Past simple, Deutsch, 3. Form] – Reihenfolge wie in der Verbliste der Klasse */
+const VERBS = [["be", "was / were", "sein", "been"], ["become", "became", "werden", "become"], ["begin", "began", "beginnen", "begun"], ["blow", "blew", "blasen", "blown"], ["break", "broke", "brechen", "broken"], ["bring", "brought", "mitbringen", "brought"], ["build", "built", "bauen", "built"], ["buy", "bought", "kaufen", "bought"], ["catch", "caught", "fangen", "caught"], ["choose", "chose", "wählen", "chosen"], ["come", "came", "kommen", "come"], ["cut", "cut", "schneiden", "cut"], ["dig", "dug", "graben", "dug"], ["do", "did", "tun, machen", "done"], ["draw", "drew", "zeichnen", "drawn"], ["dream", "dreamt / dreamed", "träumen", "dreamt / dreamed"], ["drink", "drank", "trinken", "drunk"], ["drive", "drove", "fahren (Auto)", "driven"], ["eat", "ate", "essen", "eaten"], ["fall", "fell", "fallen", "fallen"], ["feel", "felt", "fühlen", "felt"], ["fight", "fought", "kämpfen", "fought"], ["find", "found", "finden", "found"], ["fly", "flew", "fliegen", "flown"], ["forget", "forgot", "vergessen", "forgotten"], ["get", "got", "bekommen", "got"], ["get up", "got up", "aufstehen", "got up"], ["give", "gave", "geben", "given"], ["go", "went", "gehen", "gone"], ["hang", "hung", "hängen", "hung"], ["have", "had", "haben", "had"], ["hear", "heard", "hören", "heard"], ["hide", "hid", "verstecken", "hidden"], ["hit", "hit", "schlagen", "hit"], ["hold", "held", "halten", "held"], ["hurt", "hurt", "verletzen, wehtun", "hurt"], ["know", "knew", "wissen", "known"], ["lay", "laid", "legen", "laid"], ["learn", "learnt / learned", "lernen", "learnt / learned"], ["leave", "left", "verlassen", "left"], ["let", "let", "lassen (erlauben)", "let"], ["lie", "lay", "liegen", "lain"], ["lose", "lost", "verlieren", "lost"], ["make", "made", "machen (herstellen)", "made"], ["meet", "met", "treffen", "met"], ["put", "put", "stellen, legen", "put"], ["read", "read", "lesen", "read"], ["ride", "rode", "reiten", "ridden"], ["ring", "rang", "läuten", "rung"], ["run", "ran", "laufen, rennen", "run"], ["say", "said", "sagen", "said"], ["see", "saw", "sehen", "seen"], ["sell", "sold", "verkaufen", "sold"], ["send", "sent", "schicken", "sent"], ["shoot", "shot", "schießen", "shot"], ["show", "showed", "zeigen", "shown"], ["sing", "sang", "singen", "sung"], ["sink", "sank", "sinken", "sunk"], ["sit", "sat", "sitzen", "sat"], ["sleep", "slept", "schlafen", "slept"], ["smell", "smelt / smelled", "riechen", "smelt / smelled"], ["speak", "spoke", "sprechen", "spoken"], ["spend", "spent", "verbringen (Zeit)", "spent"], ["stand", "stood", "stehen", "stood"], ["steal", "stole", "stehlen", "stolen"], ["swim", "swam", "schwimmen", "swum"], ["take", "took", "nehmen", "taken"], ["take off", "took off", "ausziehen (Kleidung)", "taken off"], ["teach", "taught", "unterrichten", "taught"], ["tell", "told", "erzählen", "told"], ["think", "thought", "denken", "thought"], ["wake up", "woke up", "aufwachen", "woken up"], ["wear", "wore", "tragen (Kleidung)", "worn"], ["win", "won", "gewinnen", "won"], ["write", "wrote", "schreiben", "written"]];
+const PARTS = {1:[0,26], 2:[26,54], 3:[54,75], all:[0,75]};
+const S = {part:'1', form:'past', mode:'type', lvl:'1', de:'1'};
+const HITS_PER_LEVEL = 4, PENALTY = 1.08, BASE = {type:8, tap:6.5}, MIN_T = 1.7;
+const $ = id => document.getElementById(id);
+const field = $('field'), overlay = $('overlay');
+let pool=[], bag=[], lastV=null, meteors=[], score=0, lives=3, hits=0, level=1, running=false, paused=false, last=0, spawnT=0,
+    missed=new Map(), streak=0, penalty=1, locked=false, rulesFrom='start', wrongs=0, shown=0;
+
+/* ---------- Hilfen ---------- */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const FI = () => S.form==='third' ? 3 : 1;
+const formName = () => S.form==='third' ? '3rd form' : 'past simple';
+const norm = s => s.toLowerCase().replace(/[’`´]/g,"'").replace(/\s+/g,' ').trim();
+function accepted(v){ const f=v[FI()]; const list=f.split('/').map(norm); list.push(norm(f.replace(/\s*\/\s*/g,'/'))); list.push(norm(f)); return list; }
+function isRight(v, ans){ return accepted(v).includes(norm(ans)); }
+function lev(a,b){ const d=Array.from({length:a.length+1},(_,i)=>[i]); for(let j=1;j<=b.length;j++) d[0][j]=j;
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++) d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return d[a.length][b.length]; }
+function regular(base){ // falsche „-ed“-Form als Ablenker: goed, buyed, flied, maked …
+  const [w,...rest]=base.split(' '); let r;
+  if(w==='be') r='beed'; else if(/e$/.test(w)) r=w+'d'; else if(/[^aeiou]y$/.test(w)) r=w.slice(0,-1)+'ied'; else r=w+'ed';
+  return [r,...rest].join(' '); }
+const first = f => f.split('/')[0].trim();
+
+/* ---------- Sterne ---------- */
+function stars(){ const c=$('stars'), r=field.getBoundingClientRect(); c.width=r.width; c.height=r.height; const x=c.getContext('2d');
+  x.clearRect(0,0,c.width,c.height); for(let i=0;i<Math.round(c.width*c.height/5000);i++){ x.globalAlpha=Math.random()*.7+.2; x.fillStyle='#ffffff';
+  x.fillRect(Math.random()*c.width,Math.random()*c.height,Math.random()<.1?2:1,Math.random()<.1?2:1);} }
+addEventListener('resize', stars);
+
+/* ---------- Einstellungen ---------- */
+document.querySelectorAll('.opts[data-key]').forEach(g => g.addEventListener('click', e => {
+  const b=e.target.closest('.opt'); if(!b) return; g.querySelectorAll('.opt').forEach(o=>o.setAttribute('aria-pressed', o===b?'true':'false'));
+  S[g.dataset.key]=b.dataset.v; showBest(); }));
+const bestKey = () => 'verbmeteors2-best-'+S.part+'-'+S.form+'-'+S.mode;
+function getBest(){ try{ return +localStorage.getItem(bestKey())||0 }catch(e){ return 0 } }
+function setBest(v){ try{ localStorage.setItem(bestKey(), v) }catch(e){} }
+function showBest(){ const b=getBest(); $('bestStart').textContent = b ? 'Your best score here: '+b : ''; }
+function card(id){ ['start','rules','paused','end'].forEach(c=>$(c).hidden = c!==id); overlay.hidden=false; }
+
+/* ---------- Stapel: jedes Verb einmal, dann neu mischen; Fehler kommen bald wieder ---------- */
+function refill(){ bag=shuffle(pool.slice()); if(bag.length>1 && bag[0]===lastV) bag.push(bag.shift()); }
+function pick(){
+  for(let n=0;n<pool.length*2+4;n++){ if(!bag.length) refill(); const v=bag.shift();
+    if(!meteors.some(m=>m.v===v)){ lastV=v; return v; } bag.push(v); }
+  return null; }
+function again(v){ // falsch beantwortetes Verb in 3–6 Meteoren noch einmal
+  if(bag.slice(0,7).includes(v)) return; const pos=Math.min(bag.length, 3+Math.floor(Math.random()*4)); bag.splice(pos,0,v); }
+
+/* ---------- Tempo ---------- */
+const fallTime = () => Math.max(MIN_T, BASE[S.mode]*Math.pow(.88,level-1)/penalty);   // Sekunden vom oberen Rand bis zum Boden
+const maxOnScreen = () => S.mode==='tap' ? 1 : Math.min(4, 1+Math.floor((level+1)/3));
+function upd(){ $('score').textContent=score; $('level').textContent=level; $('lives').textContent='♥'.repeat(lives)+'♡'.repeat(Math.max(0,3-lives));
+  $('speed').textContent='×'+(BASE[S.mode]/fallTime()).toFixed(1); }
+
+function start(){
+  const [a,b]=PARTS[S.part]; pool=VERBS.slice(a,b); bag=[]; lastV=null; meteors.forEach(m=>m.el.remove()); meteors=[]; missed=new Map();
+  score=0; lives=3; hits=0; level=+S.lvl; streak=0; spawnT=0; penalty=1; locked=false; wrongs=0; shown=0; target.cur=null;
+  overlay.hidden=true; running=true; paused=false; last=performance.now(); $('pause').hidden=false;
+  $('answer').hidden = S.mode!=='type'; $('choices').hidden = S.mode!=='tap'; $('answer').placeholder=formName()+' …';
+  $('hint').textContent = S.mode==='type' ? 'Type the '+formName()+' and press Enter. Wrong answers make the game faster!' : 'Tap the '+formName()+' of the green meteor. Wrong taps make the game faster!';
+  upd(); if(S.mode==='type'){ $('answer').value=''; $('answer').focus(); }
+  spawn(); requestAnimationFrame(loop);
+}
+function spawn(){
+  const v=pick(); if(!v) return; shown++; const el=document.createElement('div'); el.className='meteor';
+  el.innerHTML='<span></span>'+(S.de==='1'?'<small></small>':''); el.firstChild.textContent=v[0]; if(S.de==='1') el.lastChild.textContent=v[2];
+  const w=field.clientWidth; let x, tries=0;
+  do { x=Math.max(80, Math.min(w-80, 80+Math.random()*(w-160))); tries++; } while(tries<12 && meteors.some(m=>Math.abs(parseFloat(m.el.style.left)-x)<150 && m.y<60));
+  el.style.left=x+'px'; el.style.top='-60px'; field.appendChild(el);
+  meteors.push({v, el, y:-60, f:.92+Math.random()*.16}); target();
+}
+function target(){ meteors.forEach(m=>m.el.classList.remove('target')); if(S.mode!=='tap'||!meteors.length) return;
+  const t=meteors.reduce((a,b)=>a.y>b.y?a:b); t.el.classList.add('target'); if(t!==target.cur){ target.cur=t; choices(t.v);} }
+function choices(v){
+  const right=first(v[FI()]); const opts=[right];
+  const cands=[regular(v[0]), first(v[S.form==='third'?1:3])];       // goed · gone statt went (bzw. went statt gone)
+  if(v[0]==='be') cands.push(S.form==='third'?'was':'been', 'is');
+  cands.forEach(c=>{ if(opts.length<3 && !isRight(v,c) && !opts.includes(c)) opts.push(c); });
+  let guard=0; while(opts.length<3 && guard++<50){ const o=first(pool[Math.floor(Math.random()*pool.length)][FI()]); if(!isRight(v,o)&&!opts.includes(o)) opts.push(o); }
+  const box=$('choices'); box.innerHTML='';
+  shuffle(opts).forEach(o=>{ const b=document.createElement('button'); b.className='btn'; b.textContent=o; b.onclick=()=>tap(b,o); box.appendChild(b); });
+}
+function tap(btn, ans){ if(!running||paused||locked||!target.cur) return; const m=target.cur;
+  if(isRight(m.v, ans)) return hit(m);
+  btn.classList.add('wrong'); wrong(m); locked=true; $('choices').querySelectorAll('.btn').forEach(b=>b.disabled=true);
+  setTimeout(()=>{ locked=false; $('choices').querySelectorAll('.btn').forEach(b=>{ b.disabled=false; b.classList.remove('wrong'); }); }, 1000); }
+$('answer').addEventListener('keydown', e => { if(e.key!=='Enter'||!running||paused) return; const ans=e.target.value; if(!ans.trim()) return;
+  const cand=meteors.filter(m=>isRight(m.v,ans)).sort((a,b)=>b.y-a.y)[0];
+  if(cand) hit(cand);
+  else { e.target.classList.remove('wrong'); void e.target.offsetWidth; e.target.classList.add('wrong');
+    // Welcher Meteor war gemeint? Der mit der ähnlichsten Form – sonst der unterste.
+    const a=norm(ans); let best=null, bd=99;
+    meteors.forEach(m=>{ const d=Math.min(...accepted(m.v).map(x=>lev(a,x)), lev(a,norm(regular(m.v[0]))), lev(a,norm(m.v[0]))); if(d<bd||(d===bd&&best&&m.y>best.y)){ bd=d; best=m; } });
+    if(!best || bd>Math.max(2, a.length/2)) best=meteors.reduce((p,m)=>!p||m.y>p.y?m:p,null);
+    if(best) wrong(best); }
+  e.target.value=''; });
+function wrong(m){
+  streak=0; wrongs++; score=Math.max(0,score-5); penalty=Math.min(2,penalty*PENALTY); miss(m.v); again(m.v);
+  m.y += field.clientHeight*.12; m.el.style.top=m.y+'px'; m.el.classList.add('hot');
+  const f=document.createElement('div'); f.className='flash'; f.textContent='Wrong! Faster!'; field.appendChild(f); setTimeout(()=>f.remove(),900);
+  const p=document.createElement('div'); p.className='fly bad'; p.textContent='−5'; p.style.left=m.el.style.left; p.style.top=m.y+'px'; field.appendChild(p); setTimeout(()=>p.remove(),900);
+  upd(); }
+function miss(v){ missed.set(v,(missed.get(v)||0)+1); }
+function hit(m){
+  streak++; const pts=10+(level-1)*2+Math.min(streak-1,5)*2; score+=pts; hits++; if(hits%HITS_PER_LEVEL===0) level++;
+  const f=document.createElement('div'); f.className='fly'; f.textContent='+'+pts+'  '+m.v[FI()]; f.style.left=m.el.style.left; f.style.top=Math.max(0,m.y)+'px'; field.appendChild(f); setTimeout(()=>f.remove(),900);
+  m.el.classList.add('boom'); setTimeout(()=>m.el.remove(),350); meteors=meteors.filter(x=>x!==m); target.cur=null; upd();
+  if(!meteors.length) spawn(); else target();
+}
+function loop(t){
+  if(!running) return; if(paused){ last=t; return requestAnimationFrame(loop); }
+  const dt=Math.min(.05,(t-last)/1000); last=t; const floor=field.clientHeight-10; const T=fallTime(); const v=(floor+60)/T;
+  spawnT+=dt; if(meteors.length<maxOnScreen() && spawnT>Math.max(.8,T*.4)){ spawnT=0; spawn(); }
+  for(const m of [...meteors]){ m.y+=v*m.f*dt; m.el.style.top=m.y+'px';
+    if(m.y+m.el.offsetHeight>floor){ lives--; miss(m.v); again(m.v); streak=0; m.el.remove(); meteors=meteors.filter(x=>x!==m); target.cur=null; upd();
+      field.animate([{background:'rgba(255,93,115,.35)'},{background:'transparent'}],{duration:400});
+      const g=document.createElement('div'); g.className='groundmsg'; g.textContent=m.v[0]+' → '+m.v[FI()]; field.appendChild(g); setTimeout(()=>g.remove(),2200);
+      if(lives<=0) return end(); if(!meteors.length) spawn(); else target(); } }
+  requestAnimationFrame(loop);
+}
+function end(){
+  running=false; paused=false; $('pause').hidden=true; meteors.forEach(m=>m.el.remove()); meteors=[]; const best=getBest(); const nb=score>best; if(nb) setBest(score);
+  $('endTitle').textContent = nb && score>0 ? 'New best score!' : 'Game over';
+  $('endText').textContent = 'You got '+score+' points and reached level '+level+'. Right answers: '+hits+' · wrong answers: '+wrongs+'.';
+  $('bestEnd').textContent = 'Best score: '+Math.max(best,score);
+  const list=[...missed.entries()].sort((a,b)=>b[1]-a[1]); const box=$('missList'); box.innerHTML='';
+  $('missBox').hidden=!list.length;
+  list.forEach(([v])=>{ ['<b>'+v[0]+'</b>', v[FI()], v[2]].forEach(h=>{ const s=document.createElement('span'); s.innerHTML=h; box.appendChild(s); }); });
+  card('end'); $('answer').hidden=true; $('choices').hidden=true; $('hint').textContent='';
+}
+function showRules(from){ rulesFrom=from; $('rForm').textContent=formName(); card('rules'); }
+$('go').onclick=start; $('again').onclick=start;
+$('menu').onclick=()=>{ card('start'); showBest(); };
+$('rulesBtn').onclick=()=>showRules('start');
+$('rulesBack').onclick=()=>card(rulesFrom==='pause'?'paused':'start');
+$('pause').onclick=()=>{ if(!running) return; paused=true; field.classList.add('paused'); card('paused'); };   // in der Pause sind die Verben unsichtbar – kein Nachdenken auf Vorrat
+$('resume').onclick=()=>{ paused=false; field.classList.remove('paused'); overlay.hidden=true; if(S.mode==='type') $('answer').focus(); };
+$('pauseRules').onclick=()=>showRules('pause');
+$('quit').onclick=()=>{ paused=false; field.classList.remove('paused'); end(); };
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&running){ paused?$('resume').click():$('pause').click(); } });
+stars(); showBest();
+</script>
+</body></html>
